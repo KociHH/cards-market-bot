@@ -13,9 +13,16 @@ from modules.card.keyboards.inline.buttons import look_card_pay_bt, menu_user, b
 from modules.card.crud.user import UserDBCrud
 from modules.card.crud.card import CardDBCrud
 from modules.shared.services.utils import parsing_callback_data
+from modules.card.services.slider.service import SliderService
+from modules.card.services.withdraw.service import WithdrawService
+from modules.card.services.pay.service import PayService
 
 router = Router(name=__name__)
 logger = logging.getLogger(__name__)
+
+slider_service = SliderService()
+withdraw_service = WithdrawService()
+pay_service = PayService()
 
 @router.callback_query(F.data == MenuUser.add_card)
 async def add_card(call: CallbackQuery, state: FSMContext):
@@ -45,39 +52,29 @@ async def balance(call: CallbackQuery, db_session: AsyncSession):
 
 @router.callback_query(F.data == MenuUser.look_cards)
 async def look_cards(call: CallbackQuery, db_session: AsyncSession):
-    result = await slider_pages("look", 1, db_session)
+    result = await slider_service.get_page_data("look", 1, db_session)
     
-    if result and isinstance(result, tuple):
-        result_text, card_id = result
-        
-        if result_text and card_id:
-            await call.message.edit_text(
-                result_text, 
-                reply_markup=slider_look(1, card_id)
-                )
+    if result:
+        result_look = await slider_service.look.handle_look(result, 1)
+        if not result_look.is_error:
+            await result_look.call_message_edit_text(call)
             return
+            
     await call.answer("Нет карточек для просмотра")
 
 @router.callback_query(F.data == MenuUser.withdraw)
 async def withdraw(call: CallbackQuery, db_session: AsyncSession, state: FSMContext):
-    user_id = call.from_user.id
-    user_db_crud = UserDBCrud(user_id, db_session)
-    
-    result_balance = await user_db_crud.get_user_balance_or_zero()
-    if result_balance == 0:
-        await call.answer("Ваш баланс равняется 0")
-        return
-    
-    application_user = await user_db_crud.get_application_user()
-    if application_user:
-        await call.answer("У вас уже есть активная заявка")
-        return
-    
     await call.answer()
-    await call.message.answer(
-        text="Пожалуйста укажите сумму вывода, либо нажмите на кнопку, чтобы вывести всю сумму:",
-        reply_markup=sum_withdrow(result_balance)
-        )
+    user_id = call.from_user.id
+    
+    result_withdraw = await withdraw_service.withdraw.handle_withdraw(db_session, user_id)
+    
+    await result_withdraw.call_message_answer(call)
+    
+    if result_withdraw.is_error:
+        await result_withdraw.call_answer(call)
+        return
+
     await state.set_state(Withdraw.sum_withdraw)
 
 @router.callback_query(F.data == MenuUser.back_card_menu)
@@ -94,25 +91,20 @@ async def back_to_menu(call: CallbackQuery, state: FSMContext):
 async def pay_card(call: CallbackQuery, db_session: AsyncSession, bot: Bot):
     # pay_card-{page}-{card_id}
     await call.answer()
-    result_params = parsing_callback_data(call.data, 3)
-    if not result_params:
-        await call.answer("Ошибка обработки запроса")
+    
+    result_pay_card = await pay_service.pay_card.handle_pay_card(call.data, db_session)
+    
+    await result_pay_card.call_answer(call)
+    
+    if result_pay_card.is_error:
         return
     
-    page = int(result_params[0])
-    card_id = int(result_params[1])
+    card_id = result_pay_card.get_key_return_data("card_id")
+    card = result_pay_card.get_key_return_data("card")
     
-    card_db_crud = CardDBCrud(card_id, db_session)
-    
-    card = await card_db_crud.get_card()
-    if not card:
-        logger.error(f"Ненайдена карточка под id: {card_id}")
-        await call.answer("Карточка не найдена")
-        return
-    
-    if not card.price or card.price <= 0:
-        logger.error(f"Невалидная цена карточки {card_id}: {card.price}")
-        await call.answer("Ошибка: невалидная цена карточки")
+    if any([card_id is None, card is None]):
+        logger.error(f"Ненайдены параметры: card_id={card_id}, card={card}")
+        await call.answer("Ошибка")
         return
     
     try:
@@ -130,7 +122,7 @@ async def pay_card(call: CallbackQuery, db_session: AsyncSession, bot: Bot):
         logger.error(f"Ошибка при создании инвойса для карточки {card_id}: {e}")
         await call.answer("Ошибка при создании платежа. Проверьте цену карточки.")
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при создании инвойса для карточки {card_id}: {e}")
-        await call.answer("Произошла ошибка при создании платежа")
+        logger.error(f"Ошибка при создании инвойса для карточки {card_id}: {e}")
+        await call.answer("Ошибка при создании платежа")
     
     

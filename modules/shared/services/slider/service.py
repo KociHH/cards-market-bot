@@ -2,15 +2,15 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.shared.services.validation.result import ResultValidation
 from modules.shared.variables import type_admin_func, type_card_func
-from modules.admin.services.slider.service import SliderProvideHandler as SliderProvideHandlerAdmin
-from modules.card.services.slider.service import SliderProvideHandler as SliderProvideHandlerCard
+from modules.admin.services.slider.service import SliderService as SliderServiceHandlerAdmin
+from modules.card.services.slider.service import SliderService as SliderServiceHandlerCard
 
 logger = logging.getLogger(__name__)
 
 class SliderService:    
     def __init__(self):
-        self.admin_slider_provider = SliderProvideHandlerAdmin()
-        self.card_slider_provider = SliderProvideHandlerCard()
+        self.admin_slider_service = SliderServiceHandlerAdmin()
+        self.card_slider_service = SliderServiceHandlerCard()
     
     async def process_slider(
         self, 
@@ -26,13 +26,13 @@ class SliderService:
             return ResultValidation("Ошибка", True)
         
         if type_func in type_admin_func:
-            provider = self.admin_slider_provider
+            service = self.admin_slider_service
         elif type_func in type_card_func:
-            provider = self.card_slider_provider
+            service = self.card_slider_service
         else:
             raise ValueError(f"Неизвестный тип функции: {type_func}")
         
-        result = await provider.get_page_data(type_func, page, db_session)
+        result = await service.get_page_data(type_func, page, db_session)
         if not result:
             return ResultValidation("Нет больше данных", True)
             
@@ -40,7 +40,7 @@ class SliderService:
             if any(item is None for item in result):
                 return ResultValidation("Нет больше данных", True)
         
-        handler = provider.get_handler(type_func)
+        handler = service.get_handler(type_func)
         if not handler:
             logger.error(f"Обработчик для типа {type_func} не найден")
             return ResultValidation("Ошибка", True)

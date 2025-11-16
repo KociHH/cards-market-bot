@@ -1,14 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.card.crud.utils import slider_pages
-from modules.card.services.slider.handlers import LookHandler
+from modules.card.services.slider.handlers import Look
 
 
-class SliderProvideHandler:
+class SliderService:
     def __init__(self) -> None:
-        self.look_handler = LookHandler()
+        self.look = Look()
         
         self.handlers = {
-            "look": self.look_handler
+            "look": self.look
         }
     
     async def get_page_data(self, type_func: str, page: int, db_session: AsyncSession):
