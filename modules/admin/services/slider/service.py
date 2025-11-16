@@ -1,18 +1,18 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from modules.admin.crud.utils import slider_pages
-from modules.admin.services.slider.handlers import ModerHandler, ApplicationsHandler, StatisticHandler
+from modules.admin.services.slider.handlers import Moder, Applications, Statistic
 
 
-class SliderProvideHandler:
+class SliderService:
     def __init__(self) -> None:
-        self.moder_handler = ModerHandler()
-        self.applications_handler = ApplicationsHandler()
-        self.statistic_handler = StatisticHandler()
+        self.moder = Moder()
+        self.applications = Applications()
+        self.statistic = Statistic()
     
         self.handlers = {
-            "moder": self.moder_handler,
-            "applications": self.applications_handler,
-            "statistic": self.statistic_handler
+            "moder": self.moder,
+            "applications": self.applications,
+            "statistic": self.statistic
         }
     
     async def get_page_data(self, type_func: str, page: int, db_session: AsyncSession):

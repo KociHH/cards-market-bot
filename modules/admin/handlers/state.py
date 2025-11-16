@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from modules.admin.keyboards.inline.buttons import admin_menu_bt, back_admin_menu_bt
 from modules.admin.keyboards.reply.button_names import AdminMenu, ChangeCard
 from modules.admin.keyboards.reply.states import ChangeCardState
-from modules.admin.services.moder_card.change import ChangeService
+from modules.admin.services.moder_card.service import ModerCardService
 
 router = Router(name=__name__)
 logger = logging.getLogger(__name__)
 
-change_service = ChangeService()
+moder_card_service = ModerCardService()
 
 @router.message(
     F.text.in_([ChangeCard.name, ChangeCard.description]), 
@@ -56,7 +56,7 @@ async def change_name_description(message: Message, state: FSMContext, db_sessio
         return
     
     if current_state == ChangeCardState.name:
-        result_name_description = await change_service.handle_name_description(db_session, card_id, ChangeCardState.name, text)
+        result_name_description = await moder_card_service.change.handle_name_description(db_session, card_id, ChangeCardState.name, text)
         
         await result_name_description.message_answer(message)
         
@@ -67,7 +67,7 @@ async def change_name_description(message: Message, state: FSMContext, db_sessio
         await state.set_data(data)
         
     elif current_state == ChangeCardState.description:
-        result_name_description = await change_service.handle_name_description(db_session, card_id, ChangeCardState.description, text)
+        result_name_description = await moder_card_service.change.handle_name_description(db_session, card_id, ChangeCardState.description, text)
         
         await result_name_description.message_answer(message)
         

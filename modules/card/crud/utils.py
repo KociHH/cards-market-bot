@@ -30,8 +30,13 @@ async def send_card_invoice(
     description: str,
     user_id: str | int
     ):
-    amount_rub *= 100
-    prices = [LabeledPrice(label=f"Карточка {user_id}", amount=amount_rub)]
+    amount_kopecks = amount_rub * 100
+    
+    if amount_kopecks > 100_000_000:
+        logger.error(f"Сумма платежа слишком большая: {amount_rub} рублей ({amount_kopecks} коп)")
+        raise ValueError(f"Сумма платежа не может превышать 1 000 000 рублей")
+    
+    prices = [LabeledPrice(label=f"Карточка {user_id}", amount=amount_kopecks)]
     await bot.send_invoice(
         chat_id=chat_id,
         title=title,

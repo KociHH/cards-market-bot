@@ -45,7 +45,10 @@ async def slider_handler(call: CallbackQuery, db_session: AsyncSession):
         await call.answer("Ошибка")
         return
     
-    success = await handler.handle(result, page, call)
-    if not success:
+    result_handler = await handler.handle(result, page)
+    
+    if result_handler.is_error:
         await call.answer("Нет больше данных")
-    return success
+        return
+    
+    await result_handler.call_message_edit_text(call)
